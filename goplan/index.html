@@ -1,0 +1,2090 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GoPlan YAML 脚本生成器</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --card-bg: #fff; --border: #e0e3eb; --text: #2c3e50;
+    --text-secondary: #6b7280; --primary: #3b82f6; --primary-hover: #2563eb;
+    --danger: #ef4444; --danger-hover: #dc2626; --success: #10b981;
+    --warning: #f59e0b; --radius: 8px;
+    --shadow: 0 1px 3px rgba(0,0,0,0.08),0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 6px rgba(0,0,0,0.07),0 2px 4px rgba(0,0,0,0.06);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.6; min-height: 100vh; }
+  .app-header { background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%); color: #fff; padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: sticky; top: 0; z-index: 100; }
+  .app-header h1 { font-size: 1.3rem; font-weight: 600; letter-spacing: -0.3px; }
+  .app-header .subtitle { font-size: 0.75rem; opacity: 0.75; margin-top: 1px; }
+  .container { max-width: 1100px; margin: 0 auto; padding: 20px 16px; }
+  .layout { display: grid; grid-template-columns: 1fr 400px; gap: 20px; align-items: start; }
+
+  /* Cards */
+  .card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+  .card-header { padding: 12px 16px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 0.9rem; display: flex; align-items: center; gap: 6px; background: #fafbfc; }
+  .card-body { padding: 16px; }
+
+  /* Form */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid.col-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.3px; }
+  .form-group label .req { color: var(--danger); margin-left: 2px; }
+  .form-group label .opt { color: #9ca3af; font-weight: 400; font-size: 0.68rem; margin-left: 4px; }
+  input, select, textarea { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.85rem; font-family: inherit; transition: border-color 0.15s, box-shadow 0.15s; background: #fff; width: 100%; }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+  input.invalid { border-color: var(--danger); }
+  .help-text { font-size: 0.72rem; color: #9ca3af; margin-top: 1px; }
+  .coord-input { display: flex; gap: 4px; align-items: center; }
+  .coord-input input { flex: 1; }
+  .coord-input .btn-pick { padding: 4px 8px; font-size: 0.7rem; cursor: pointer; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 4px; color: #1e40af; white-space: nowrap; }
+  .coord-input .btn-pick:hover { background: #dbeafe; }
+  .coord-input .btn-pick.active-pick { background: #fef2f2; border-color: #f87171; color: #dc2626; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 6px; font-size: 0.82rem; font-weight: 500; cursor: pointer; border: 1px solid transparent; transition: all 0.15s; white-space: nowrap; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-primary:hover { background: var(--primary-hover); }
+  .btn-danger { background: #fff; color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: #fef2f2; }
+  .btn-outline { background: #fff; color: var(--text-secondary); border-color: var(--border); }
+  .btn-outline:hover { background: #f9fafb; }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-success:hover { background: #059669; }
+  .btn-warning { background: var(--warning); color: #fff; }
+  .btn-sm { padding: 4px 10px; font-size: 0.75rem; }
+  .btn-group { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* Flow Item */
+  .flow-item { border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; background: #fafbfc; position: relative; }
+  .flow-item .flow-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  .flow-item .flow-index { font-weight: 700; font-size: 0.82rem; color: var(--primary); background: #eff6ff; padding: 2px 10px; border-radius: 20px; }
+  .flow-type-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 12px; }
+  .flow-type-tab { padding: 4px 10px; border: 1px solid var(--border); border-radius: 20px; font-size: 0.75rem; cursor: pointer; transition: all 0.15s; background: #fff; color: var(--text-secondary); user-select: none; }
+  .flow-type-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .flow-type-tab:hover:not(.active) { background: #eff6ff; border-color: #93c5fd; }
+  .flow-fields { display: none; }
+  .flow-fields.active { display: block; }
+  .flow-optional-toggle { font-size: 0.72rem; color: #9ca3af; cursor: pointer; user-select: none; display: inline-block; padding: 2px 0; }
+  .flow-optional-toggle:hover { color: var(--primary); }
+
+  /* Preview */
+  .preview-panel { position: sticky; top: 90px; }
+  .preview-output { background: #1e293b; color: #e2e8f0; font-family: "JetBrains Mono","Fira Code","SF Mono",monospace; font-size: 0.78rem; line-height: 1.6; padding: 16px; border-radius: var(--radius); overflow-x: auto; white-space: pre; max-height: 55vh; overflow-y: auto; tab-size: 2; }
+  .preview-output .key { color: #93c5fd; }
+  .preview-output .val { color: #a5f0c5; }
+  .preview-output .comment { color: #64748b; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 20px; right: 20px; padding: 10px 18px; border-radius: var(--radius); color: #fff; font-size: 0.82rem; font-weight: 500; z-index: 300; box-shadow: var(--shadow-md); animation: slideUp 0.3s ease; max-width: 380px; white-space: pre-line; }
+  .toast.success { background: #059669; }
+  .toast.error { background: #dc2626; }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Empty state */
+  .empty-state { text-align: center; padding: 28px 16px; color: #9ca3af; }
+  .empty-state .icon { font-size: 2.2rem; margin-bottom: 6px; }
+
+  /* Trigger builder */
+  .trigger-builder { display: none; margin-top: 6px; padding: 10px; background: #f0f9ff; border-radius: 6px; border: 1px dashed #93c5fd; }
+  .trigger-builder.active { display: block; }
+
+  /* Tags */
+  .tag-list { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+  .tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 9px; background: #eff6ff; border: 1px solid #93c5fd; border-radius: 20px; font-size: 0.76rem; color: #1e40af; }
+  .tag .remove { cursor: pointer; font-weight: bold; margin-left: 1px; color: #3b82f6; }
+  .tag .remove:hover { color: #dc2626; }
+
+  /* Flow type colors */
+  .type-move { border-left: 3px solid #3b82f6; }
+  .type-bucket { border-left: 3px solid #8b5cf6; }
+  .type-rotate { border-left: 3px solid #f59e0b; }
+  .type-charge { border-left: 3px solid #10b981; }
+  .type-transfer { border-left: 3px solid #ef4444; }
+  .type-fork { border-left: 3px solid #ec4899; }
+  .type-cmd { border-left: 3px solid #6366f1; }
+
+  /* ====== MAP MODAL ====== */
+  .map-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.55); z-index: 200; justify-content: center; align-items: center; }
+  .map-overlay.active { display: flex; }
+  .map-dialog { background: #fff; border-radius: 12px; width: 92vw; max-width: 1300px; height: 88vh; display: flex; flex-direction: column; box-shadow: 0 20px 60px rgba(0,0,0,0.3); overflow: hidden; }
+  .map-dialog-header { padding: 12px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; background: #f8fafc; }
+  .map-dialog-header h2 { font-size: 1.1rem; display: flex; align-items: center; gap: 8px; }
+  .map-dialog-body { flex: 1; display: flex; overflow: hidden; }
+  .map-sidebar { width: 280px; border-right: 1px solid var(--border); padding: 12px; overflow-y: auto; background: #fafbfc; font-size: 0.8rem; }
+  .map-sidebar h3 { font-size: 0.82rem; margin-bottom: 8px; color: var(--text-secondary); }
+  .map-sidebar .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; cursor: pointer; padding: 2px 4px; border-radius: 4px; }
+  .map-sidebar .legend-item:hover { background: #f1f5f9; }
+  .map-sidebar .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .map-main { flex: 1; position: relative; overflow: hidden; background: #f1f5f9; }
+  .map-canvas { position: absolute; top: 0; left: 0; cursor: grab; }
+  .map-canvas:active { cursor: grabbing; }
+  .map-canvas.crosshair { cursor: crosshair; }
+  .map-toolbar { position: absolute; top: 10px; right: 10px; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+  .map-toolbar button { width: 34px; height: 34px; border-radius: 6px; border: 1px solid var(--border); background: #fff; cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
+  .map-toolbar button:hover { background: #f1f5f9; }
+  .map-toolbar button.active-btn { background: var(--primary); color: #fff; border-color: var(--primary); }
+  .map-info { position: absolute; bottom: 8px; left: 8px; background: rgba(0,0,0,0.75); color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 0.72rem; z-index: 10; pointer-events: none; }
+  .map-status { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.92); padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; z-index: 10; box-shadow: var(--shadow); display: flex; gap: 12px; }
+  .node-tooltip { position: absolute; background: #1e293b; color: #fff; padding: 6px 10px; border-radius: 6px; font-size: 0.73rem; pointer-events: none; z-index: 20; white-space: nowrap; box-shadow: var(--shadow-md); display: none; }
+  .map-sidebar .node-list { max-height: 400px; overflow-y: auto; }
+  .map-sidebar .node-item { padding: 3px 6px; cursor: pointer; border-radius: 3px; font-size: 0.73rem; display: flex; justify-content: space-between; }
+  .map-sidebar .node-item:hover { background: #e0f2fe; }
+  .map-sidebar .node-item.selected { background: #bfdbfe; font-weight: 600; }
+
+  /* Flow Picker Popup */
+  .flow-picker {
+    position: fixed; z-index: 250; background: #fff; border-radius: 10px;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.18); border: 1px solid var(--border);
+    min-width: 320px; max-width: 380px; overflow: hidden;
+  }
+  .flow-picker-header {
+    padding: 10px 14px; font-weight: 600; font-size: 0.82rem;
+    background: #f8fafc; border-bottom: 1px solid var(--border);
+  }
+  .flow-picker-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; padding: 10px;
+    max-height: 240px; overflow-y: auto;
+  }
+  .flow-picker-item {
+    display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+    border: 1px solid var(--border); border-radius: 6px; cursor: pointer;
+    font-size: 0.8rem; transition: all 0.12s; user-select: none;
+  }
+  .flow-picker-item:hover { background: #f1f5f9; border-color: #93c5fd; }
+  .flow-picker-item.selected { background: #eff6ff; border-color: #3b82f6; color: #1e40af; }
+  .flow-picker-item .desc { font-size: 0.68rem; color: #9ca3af; }
+  .flow-picker-footer {
+    padding: 8px 14px; border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: #fafbfc;
+  }
+  .flow-picker-hint { font-size: 0.73rem; color: var(--text-secondary); }
+  .flow-picker-hint b { color: var(--primary); }
+
+  /* Responsive */
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    .form-grid { grid-template-columns: 1fr; }
+    .form-grid.col-3 { grid-template-columns: 1fr; }
+    .preview-panel { position: static; }
+    .map-dialog { width: 98vw; height: 95vh; }
+    .map-sidebar { width: 200px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>🤖 GoPlan YAML 脚本生成器</h1>
+    <div class="subtitle">基于 GORMS 调度引擎 — 可视化生成机器人任务脚本 | 支持地图选点</div>
+  </div>
+  <div class="btn-group">
+    <input type="file" id="mapFileInputHeader" accept=".json,.geojson" style="display:none;" onchange="loadMapFromFile(event)">
+    <button class="btn btn-warning btn-sm" onclick="document.getElementById('mapFileInputHeader').click()">📂 打开地图文件</button>
+    <button class="btn btn-outline btn-sm" onclick="openMap()" style="color:#fff;border-color:rgba(255,255,255,0.3);background:transparent;">🗺️ 地图面板</button>
+    <button class="btn btn-outline btn-sm" onclick="resetAll()" style="color:#fff;border-color:rgba(255,255,255,0.3);background:transparent;">🔄 重置</button>
+    <button class="btn btn-outline btn-sm" onclick="loadExample()" style="color:#fff;border-color:rgba(255,255,255,0.3);background:transparent;">📋 示例</button>
+  </div>
+</div>
+
+<div class="container">
+<div class="layout">
+
+<!-- LEFT: Editor -->
+<div class="editor-panel">
+
+  <!-- Process Config -->
+  <div class="card">
+    <div class="card-header"><span class="icon">⚙️</span> 任务配置 (PlanProcess)</div>
+    <div class="card-body">
+      <div class="form-grid col-3">
+        <div class="form-group">
+          <label>goplanID <span class="req">*</span></label>
+          <input type="number" id="goplanID" value="2" min="1" placeholder="任务轨道ID">
+          <span class="help-text">同 goplanID 的任务串行执行</span>
+        </div>
+        <div class="form-group">
+          <label>mapid <span class="req">*</span></label>
+          <input type="number" id="mapid" value="" min="0" placeholder="子图ID">
+          <span class="help-text">子地图ID</span>
+        </div>
+        <div class="form-group">
+          <label>priority <span class="req">*</span></label>
+          <input type="number" id="priority" value="2" min="0" placeholder="优先级">
+          <span class="help-text">越大越优先</span>
+        </div>
+        <div class="form-group">
+          <label>loopTime <span class="req">*</span></label>
+          <input type="number" id="loopTime" value="-1" placeholder="循环次数">
+          <span class="help-text">-1=无限循环</span>
+        </div>
+        <div class="form-group">
+          <label>loopWait <span class="opt">可选</span></label>
+          <input type="number" id="loopWait" value="0" min="0" placeholder="循环等待(秒)">
+        </div>
+        <div class="form-group">
+          <label>robotXYs <span class="req">*</span></label>
+          <div class="coord-input">
+            <input type="text" id="robotXYs" value="" placeholder="X$Y 或 X1$Y1,X2$Y2">
+            <button class="btn-pick" data-target="robotXYs" title="从地图选点" onclick="toggleMapPick('robotXYs', this)">📍</button>
+          </div>
+          <span class="help-text">机器人起始坐标。支持 robotNodes 节点名</span>
+        </div>
+      </div>
+
+      <!-- Trigger -->
+      <div style="margin-top:14px;">
+        <div class="form-group">
+          <label>trigger <span class="opt">可选</span></label>
+          <select id="triggerType" onchange="onTriggerTypeChange()">
+            <option value="nil">nil (无触发条件)</option>
+            <option value="lowBattery">lowBattery (低电量触发)</option>
+            <option value="nodeHasRobot">nodeHasRobot (节点有机器人时触发)</option>
+            <option value="xyHasRobot">xyHasRobot (坐标有机器人时触发)</option>
+            <option value="scheduleNode">scheduleNode (调度节点条件)</option>
+            <option value="scheduleXY">scheduleXY (调度坐标条件)</option>
+            <option value="waitValue">waitValue (变量条件触发)</option>
+            <option value="postUrl">postUrl (HTTP回调触发)</option>
+          </select>
+        </div>
+        <div class="trigger-builder" id="triggerBuilder"></div>
+      </div>
+
+      <!-- Robot Limit -->
+      <div style="margin-top:14px;">
+        <div class="form-group">
+          <label>robotLimit <span class="opt">可选</span></label>
+          <div style="display:flex;gap:6px;">
+            <select id="robotLimitSelect" style="flex:1;">
+              <option value="">-- 添加限制条件 --</option>
+              <option value="hasFrame">hasFrame (必须有货架)</option>
+              <option value="noFrame">noFrame (必须无货架)</option>
+              <option value="near">near:NodeId (离节点最近)</option>
+              <option value="nearFrame">nearFrame:FrameID (离货架最近)</option>
+              <option value="robotAlias">robotAlias:Name (指定别名)</option>
+            </select>
+            <button class="btn btn-outline btn-sm" onclick="addRobotLimit()">+ 添加</button>
+          </div>
+        </div>
+        <div class="tag-list" id="robotLimitTags"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Flows -->
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">🔀</span> 动作流 (Flows)
+      <span style="margin-left:auto;font-weight:400;font-size:0.78rem;color:#9ca3af;" id="flowCount">0 个动作</span>
+    </div>
+    <div class="card-body">
+      <div id="flowsContainer">
+        <div class="empty-state"><div class="icon">📭</div><p>暂无动作流，点击下方按钮添加</p></div>
+      </div>
+      <div class="btn-group" style="margin-top:10px;">
+        <button class="btn btn-primary btn-sm" onclick="addFlow()">➕ 添加动作</button>
+        <button class="btn btn-outline btn-sm" onclick="duplicateLastFlow()">📋 复制上一个</button>
+        <button class="btn btn-outline btn-sm" onclick="addChargeFlow()">🔋 快速添加充电</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RIGHT: Preview -->
+<div class="preview-panel">
+  <div class="card">
+    <div class="card-header">
+      <span class="icon">📄</span> YAML 预览
+      <span style="margin-left:auto;font-weight:400;font-size:0.68rem;color:#9ca3af;" id="fileName">rules_nd_xxx.yaml</span>
+    </div>
+    <div class="card-body" style="padding:0;">
+      <div class="preview-output" id="yamlPreview"># 请先填写配置...</div>
+    </div>
+    <div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;gap:6px;">
+      <button class="btn btn-primary btn-sm" onclick="copyYaml()">📋 复制</button>
+      <button class="btn btn-success btn-sm" onclick="downloadYaml()">💾 下载 .yaml</button>
+      <button class="btn btn-outline btn-sm" onclick="validateForm()" style="margin-left:auto;">✅ 验证</button>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px;">
+    <div class="card-header"><span class="icon">📖</span> 动作类型参考</div>
+    <div class="card-body" style="font-size:0.78rem;color:var(--text-secondary);padding:10px 14px;">
+      <table style="width:100%;border-collapse:collapse;">
+        <tr><td style="padding:2px 6px;">🔵 <b>move</b></td><td>移动</td><td style="color:#9ca3af;">endXY</td></tr>
+        <tr><td style="padding:2px 6px;">🟣 <b>bucket</b></td><td>搬运货架</td><td style="color:#9ca3af;">frame + endXY</td></tr>
+        <tr><td style="padding:2px 6px;">🟡 <b>rotate</b></td><td>旋转</td><td style="color:#9ca3af;">frameFace</td></tr>
+        <tr><td style="padding:2px 6px;">🟢 <b>charge</b></td><td>充电</td><td style="color:#9ca3af;">power, lower</td></tr>
+        <tr><td style="padding:2px 6px;">🔴 <b>transfer</b></td><td>辊筒传输</td><td style="color:#9ca3af;">transferType</td></tr>
+        <tr><td style="padding:2px 6px;">💗 <b>fork</b></td><td>叉取货架</td><td style="color:#9ca3af;">forkType</td></tr>
+        <tr><td style="padding:2px 6px;">🟣 <b>cmd</b></td><td>扩展命令</td><td style="color:#9ca3af;">cmd + params</td></tr>
+      </table>
+      <div style="margin-top:8px;font-size:0.7rem;color:#9ca3af;">类型可组合: <code>move + bucket</code></div>
+    </div>
+  </div>
+</div>
+
+</div>
+</div>
+
+<!-- ============ MAP MODAL ============ -->
+<div class="map-overlay" id="mapOverlay">
+  <div class="map-dialog">
+    <div class="map-dialog-header">
+      <h2>🗺️ 地图可视化选点 <span style="font-size:0.75rem;font-weight:400;color:var(--text-secondary);" id="mapPickStatus"></span></h2>
+      <div class="btn-group">
+        <input type="file" id="mapFileInput" accept=".json,.geojson" style="display:none;" onchange="loadMapFromFile(event)">
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('mapFileInput').click()">📂 打开地图文件</button>
+        <button class="btn btn-outline btn-sm" onclick="loadMapFromJson()">📥 粘贴JSON</button>
+        <button class="btn btn-outline btn-sm" id="btnTogglePick" onclick="togglePickMode()">🎯 选点模式</button>
+        <button class="btn btn-danger btn-sm" onclick="closeMap()">✕ 关闭</button>
+      </div>
+    </div>
+    <div class="map-dialog-body">
+      <div class="map-sidebar" id="mapSidebar">
+        <h3>📊 图例</h3>
+        <div class="legend-item" onclick="filterNodes('all')"><div class="legend-dot" style="background:#64748b;"></div> 全部节点</div>
+        <div class="legend-item" onclick="filterNodes('normal')"><div class="legend-dot" style="background:#3b82f6;"></div> 普通节点</div>
+        <div class="legend-item" onclick="filterNodes('charge')"><div class="legend-dot" style="background:#10b981;"></div> 充电站</div>
+        <div class="legend-item" onclick="filterNodes('frame')"><div class="legend-dot" style="background:#8b5cf6;"></div> 货架点</div>
+        <div class="legend-item" onclick="filterNodes('station')"><div class="legend-dot" style="background:#f59e0b;"></div> 站点</div>
+        <hr style="margin:8px 0;border-color:var(--border);">
+        <h3>📍 节点列表 <span style="font-weight:400;font-size:0.7rem;" id="mapNodeCount"></span></h3>
+        <input type="text" placeholder="搜索节点ID..." style="margin-bottom:6px;padding:4px 8px;font-size:0.75rem;" oninput="filterNodeList(this.value)">
+        <div class="node-list" id="nodeList"></div>
+        <hr style="margin:8px 0;border-color:var(--border);">
+        <div style="font-size:0.7rem;color:#9ca3af;">
+          <b>操作:</b> 滚轮缩放 | 拖拽平移 | 点击选点<br>
+          <b>快捷键:</b> P=选点模式 F=适配视图
+        </div>
+        <div style="margin-top:6px;font-size:0.7rem;">
+          <label>坐标格式:</label>
+          <select id="coordFormat" style="font-size:0.7rem;padding:2px 4px;width:100%;margin-top:2px;">
+            <option value="xy">X$Y (坐标)</option>
+            <option value="node">NodeID (节点ID)</option>
+          </select>
+        </div>
+        <div id="selectedCoordInfo" style="margin-top:8px;font-size:0.73rem;color:var(--primary);font-weight:600;"></div>
+      </div>
+      <div class="map-main" id="mapMain">
+        <canvas class="map-canvas" id="mapCanvas"></canvas>
+        <div class="node-tooltip" id="nodeTooltip"></div>
+        <div class="map-toolbar">
+          <button onclick="mapZoomIn()" title="放大">+</button>
+          <button onclick="mapZoomOut()" title="缩小">−</button>
+          <button onclick="mapFitView()" title="适配视图">⊞</button>
+          <button onclick="togglePickMode()" title="选点模式 (P)" id="btnPickMode">🎯</button>
+        </div>
+        <div class="map-info" id="mapInfo">未加载地图</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Flow Type Picker Popup -->
+<div id="flowPicker" class="flow-picker" style="display:none;">
+  <div class="flow-picker-header">选择动作类型（可多选）</div>
+  <div class="flow-picker-grid" id="flowPickerGrid"></div>
+  <div class="flow-picker-footer">
+    <span class="flow-picker-hint" id="flowPickerHint">已选类型将组合为: <b>move</b></span>
+    <button class="btn btn-primary btn-sm" onclick="confirmFlowPicker()">✅ 添加</button>
+  </div>
+</div>
+
+<div id="toast" class="toast" style="display:none;"></div>
+
+<script>
+// ============ State ============
+let flows = [];
+let flowIdCounter = 0;
+let robotLimits = [];
+
+// ============ Map State ============
+let mapData = null;
+let mapView = { offsetX: 0, offsetY: 0, scale: 1, minScale: 0.1, maxScale: 10 };
+let mapDragging = false;
+let mapDragStart = { x: 0, y: 0 };
+let mapDragOffset = { x: 0, y: 0 };
+let pickMode = false;
+let activePickTarget = null;
+let filteredNodeTag = 'all';
+let nodeListFilter = '';
+let selectedMapNode = null;
+let hoveredNode = null;
+
+// ============ Toast ============
+function showToast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast ' + type;
+  t.style.display = 'block';
+  clearTimeout(t._timeout);
+  t._timeout = setTimeout(() => { t.style.display = 'none'; }, 3000);
+}
+
+// ============ Robot Limits ============
+function addRobotLimit() {
+  const sel = document.getElementById('robotLimitSelect');
+  const val = sel.value;
+  if (!val) return;
+  let label = val;
+  if (val === 'near') {
+    const nodeId = prompt('请输入节点ID (NodeId):');
+    if (!nodeId) return;
+    label = 'near:' + nodeId;
+  } else if (val === 'nearFrame') {
+    const frameId = prompt('请输入货架ID (FrameID):');
+    if (!frameId) return;
+    label = 'nearFrame:' + frameId;
+  } else if (val === 'robotAlias') {
+    const alias = prompt('请输入机器人别名:');
+    if (!alias) return;
+    label = 'robotAlias:' + alias;
+  }
+  if (!robotLimits.includes(label)) {
+    robotLimits.push(label);
+    renderRobotLimits();
+  }
+  sel.value = '';
+}
+
+function removeRobotLimit(idx) {
+  robotLimits.splice(idx, 1);
+  renderRobotLimits();
+}
+
+function renderRobotLimits() {
+  document.getElementById('robotLimitTags').innerHTML = robotLimits.map((l, i) =>
+    `<span class="tag">${l}<span class="remove" onclick="removeRobotLimit(${i})">×</span></span>`
+  ).join('');
+}
+
+// ============ Trigger Builder ============
+function onTriggerTypeChange() {
+  const type = document.getElementById('triggerType').value;
+  const builder = document.getElementById('triggerBuilder');
+  let html = '';
+  switch (type) {
+    case 'nil': builder.classList.remove('active'); updatePreview(); return;
+    case 'lowBattery':
+      html = `<div class="form-grid">
+        <div class="form-group"><label>电量阈值 <span class="req">*</span></label><input type="number" id="trig_battery" value="50" placeholder="如 50"></div>
+        <div class="form-group"><label>检查位置类型 <span class="opt">可选</span></label><select id="trig_posType"><option value="">不检查</option><option value="nodeHasRobot">nodeHasRobot</option><option value="xyHasRobot">xyHasRobot</option></select></div>
+        <div class="form-group"><label>检查位置值 <span class="opt">可选</span></label><input type="text" id="trig_posValue" placeholder="节点ID 或 X$Y"></div>
+      </div>`; break;
+    case 'nodeHasRobot': case 'xyHasRobot':
+      html = `<div class="form-grid">
+        <div class="form-group"><label>检查位置值 <span class="req">*</span></label><input type="text" id="trig_checkPos" placeholder="${type==='nodeHasRobot'?'节点ID':'X$Y'}"></div>
+        <div class="form-group"><label>调度位置类型 <span class="req">*</span></label><select id="trig_scheduleType"><option value="scheduleNode">scheduleNode</option><option value="scheduleXY">scheduleXY</option></select></div>
+        <div class="form-group"><label>调度位置值 <span class="req">*</span></label><input type="text" id="trig_scheduleValue" placeholder="节点ID 或 X$Y"></div>
+      </div>`; break;
+    case 'scheduleNode': case 'scheduleXY':
+      html = `<div class="form-grid">
+        <div class="form-group"><label>检查位置类型 <span class="req">*</span></label><select id="trig_checkType2"><option value="nodeHasRobot">nodeHasRobot</option><option value="xyHasRobot">xyHasRobot</option></select></div>
+        <div class="form-group"><label>检查位置值 <span class="req">*</span></label><input type="text" id="trig_checkValue2" placeholder="节点ID 或 X$Y"></div>
+        <div class="form-group"><label>调度位置值 <span class="req">*</span></label><input type="text" id="trig_scheduleValue2" placeholder="${type==='scheduleNode'?'节点ID':'X$Y'}"></div>
+      </div>`; break;
+    case 'waitValue':
+      html = `<div class="form-grid">
+        <div class="form-group"><label>变量标签 <span class="req">*</span></label><input type="text" id="trig_tag" placeholder="如 robot.Power"></div>
+        <div class="form-group"><label>条件表达式 <span class="req">*</span></label><input type="text" id="trig_expr" placeholder="如 eq:50 或 robot.Power&lt;50"></div>
+      </div>`; break;
+    case 'postUrl':
+      html = `<div class="form-grid col-3">
+        <div class="form-group"><label>URL 标签 <span class="req">*</span></label><input type="text" id="trig_urlTag" placeholder="http://x/api"></div>
+        <div class="form-group"><label>请求体 <span class="req">*</span></label><input type="text" id="trig_body" placeholder="POST body"></div>
+        <div class="form-group"><label>期望返回值 <span class="req">*</span></label><input type="text" id="trig_expected" placeholder="如 true"></div>
+      </div>`; break;
+  }
+  builder.innerHTML = html;
+  builder.classList.add('active');
+  updatePreview();
+}
+
+function buildTriggerString() {
+  const type = document.getElementById('triggerType').value;
+  if (type === 'nil') return 'nil';
+  switch (type) {
+    case 'lowBattery': {
+      const b = document.getElementById('trig_battery')?.value || '50';
+      const pt = document.getElementById('trig_posType')?.value;
+      const pv = document.getElementById('trig_posValue')?.value;
+      return pt && pv ? `lowBattery:${b},${pt}:${pv}` : `lowBattery:${b}`;
+    }
+    case 'nodeHasRobot': case 'xyHasRobot': {
+      const cp = document.getElementById('trig_checkPos')?.value || '';
+      const st = document.getElementById('trig_scheduleType')?.value || '';
+      const sv = document.getElementById('trig_scheduleValue')?.value || '';
+      return `${type}:${cp},${st}:${sv}`;
+    }
+    case 'scheduleNode': case 'scheduleXY': {
+      const ct = document.getElementById('trig_checkType2')?.value || '';
+      const cv = document.getElementById('trig_checkValue2')?.value || '';
+      const sv = document.getElementById('trig_scheduleValue2')?.value || '';
+      return `${ct}:${cv},${type}:${sv}`;
+    }
+    case 'waitValue': {
+      const tag = document.getElementById('trig_tag')?.value || '';
+      const expr = document.getElementById('trig_expr')?.value || '';
+      return `waitValue:${tag},${expr}`;
+    }
+    case 'postUrl': {
+      const ut = document.getElementById('trig_urlTag')?.value || '';
+      const body = document.getElementById('trig_body')?.value || '';
+      const exp = document.getElementById('trig_expected')?.value || '';
+      return `postUrl:${ut},${body}:${exp}`;
+    }
+    default: return 'nil';
+  }
+}
+
+// ============ Flow Type Definitions ============
+const FLOW_TYPES = ['move', 'bucket', 'rotate', 'charge', 'transfer', 'fork', 'cmd'];
+
+// Fields that represent coordinates (can be picked from map)
+const COORD_FIELDS = ['endXY', 'bgnXY', 'liftSXY', 'liftEXY', 'forkXY', 'robotXYs'];
+
+const FLOW_META = {
+  move: {
+    label: '🔵 move', title: '机器人移动',
+    fields: [
+      { key: 'endXY', label: 'endXY', type: 'coord', required: true, placeholder: 'X$Y', help: '终点坐标。也支持 endNode' },
+      { key: 'robotFace', label: 'robotFace', type: 'text', optional: true, placeholder: '如 90', help: '机器人朝向角度' },
+      { key: 'robotTheta', label: 'robotTheta', type: 'text', optional: true, placeholder: '如 1.57', help: '机器人旋转角度(弧度)' },
+      { key: 'dir', label: 'dir', type: 'select', optional: true, options: ['', '0', '1'], help: '0=前进, 1=后退' },
+      { key: 'maxSpeed', label: 'maxSpeed', type: 'number', optional: true, placeholder: '最大速度' },
+      { key: 'maxAcc', label: 'maxAcc', type: 'number', optional: true, placeholder: '最大加速度' },
+      { key: 'movePr', label: 'movePr', type: 'number', optional: true, placeholder: '如 0.8', help: '移动完成比例(0-1)' }
+    ]
+  },
+  bucket: {
+    label: '🟣 bucket', title: '搬运货架',
+    fields: [
+      { key: 'endXY', label: 'endXY', type: 'coord', required: true, placeholder: 'X$Y', help: '货架终点坐标' },
+      { key: 'frame', label: 'frame', type: 'text', required: true, placeholder: '货架ID', help: '要搬运的货架ID' },
+      { key: 'releaseFrame', label: 'releaseFrame', type: 'select', required: true, options: ['false', 'true'], value: 'false', help: '是否释放货架(放下)' },
+      { key: 'syncTurnFrame', label: 'syncTurnFrame', type: 'number', placeholder: '同步旋转标志', optional: true },
+      { key: 'bgnXY', label: 'bgnXY', type: 'coord', placeholder: 'X$Y', optional: true, help: '取货架起始坐标。也支持 bgnNode' },
+      { key: 'liftSXY', label: 'liftSXY', type: 'coord', placeholder: 'X$Y', optional: true, help: '顶升起始坐标。也支持 liftSNode' },
+      { key: 'liftEXY', label: 'liftEXY', type: 'coord', placeholder: 'X$Y', optional: true, help: '顶升结束坐标。也支持 liftENode' }
+    ]
+  },
+  rotate: {
+    label: '🟡 rotate', title: '旋转货架',
+    fields: [
+      { key: 'endXY', label: 'endXY', type: 'coord', placeholder: 'X$Y', optional: true, help: '旋转位置坐标' },
+      { key: 'frameFace', label: 'frameFace', type: 'text', optional: true, placeholder: '如 90', help: '货架朝向角度' },
+      { key: 'frameTheta', label: 'frameTheta', type: 'text', optional: true, placeholder: '如 1.57', help: '货架旋转角度(弧度)' }
+    ]
+  },
+  charge: {
+    label: '🟢 charge', title: '充电',
+    fields: [
+      { key: 'power', label: 'power', type: 'number', required: true, value: '90', placeholder: '90', help: '目标电量百分比' },
+      { key: 'lower', label: 'lower', type: 'number', required: true, value: '30', placeholder: '30', help: '低于此电量触发充电' },
+      { key: 'timeout', label: 'timeout', type: 'number', optional: true, placeholder: '超时(秒)' }
+    ]
+  },
+  transfer: {
+    label: '🔴 transfer', title: '辊筒传输',
+    fields: [
+      { key: 'endXY', label: 'endXY', type: 'coord', placeholder: 'X$Y (可选)', help: '传输位置(可选)' },
+      { key: 'transType', label: 'transType', type: 'select', options: ['', '0', '1'], required: true, help: '0=标准辊筒, 1=高级传输' },
+      { key: 'transferType', label: 'transferType', type: 'number', showIf: { transType: '0' }, placeholder: '传输类型' },
+      { key: 'rollerID', label: 'rollerID', type: 'number', showIf: { transType: '0' }, placeholder: '辊筒ID' },
+      { key: 'dir', label: 'dir', type: 'number', showIf: { transType: '0' }, placeholder: '方向' },
+      { key: 'frameID', label: 'frameID', type: 'text', showIf: { transType: '0' }, placeholder: '货架ID' },
+      { key: 'transferType2', label: 'transferType2', type: 'number', showIf: { transType: '0' }, placeholder: '第二段传输类型(-1=不用)' },
+      { key: 'rollerID2', label: 'rollerID2', type: 'number', showIf: { transType: '0' }, placeholder: '第二段辊筒ID' },
+      { key: 'dir2', label: 'dir2', type: 'number', showIf: { transType: '0' }, placeholder: '第二段方向' },
+      { key: 'frameID2', label: 'frameID2', type: 'text', showIf: { transType: '0' }, placeholder: '第二段货架ID' },
+      { key: 'atType', label: 'atType', type: 'number', showIf: { transType: '1' }, placeholder: '对接类型' },
+      { key: 'atID', label: 'atID', type: 'number', showIf: { transType: '1' }, placeholder: '对接设备ID' },
+      { key: 'transferTypeStr', label: 'transferType', type: 'text', showIf: { transType: '1' }, placeholder: '传输类型列表' },
+      { key: 'transferCnt', label: 'transferCnt', type: 'number', showIf: { transType: '1' }, placeholder: '传输次数' },
+      { key: 'dockingVerify', label: 'dockingVerify', type: 'number', showIf: { transType: '1' }, placeholder: '对接验证' },
+    ]
+  },
+  fork: {
+    label: '💗 fork', title: '叉取货架',
+    fields: [
+      { key: 'endXY', label: 'endXY', type: 'coord', required: true, placeholder: 'X$Y', help: '叉取位置坐标' },
+      { key: 'forkType', label: 'forkType', type: 'number', required: true, placeholder: '叉取类型' },
+      { key: 'forkXY', label: 'forkXY', type: 'coord', optional: true, placeholder: 'X$Y', help: '叉取点坐标(默认用endXY)' },
+      { key: 'height', label: 'height', type: 'number', optional: true, placeholder: '高度' },
+      { key: 'offset', label: 'offset', type: 'number', optional: true, placeholder: '偏移量' },
+      { key: 'width', label: 'width', type: 'number', optional: true, placeholder: '宽度' },
+      { key: 'extParams', label: 'extParams', type: 'text', optional: true, placeholder: '扩展参数(逗号分隔)' },
+      { key: 'extStr', label: 'extStr', type: 'text', optional: true, placeholder: '扩展字符串' }
+    ]
+  },
+  cmd: {
+    label: '🟣 cmd', title: '扩展命令',
+    fields: [
+      { key: 'cmd', label: 'cmd', type: 'text', required: true, placeholder: '命令名' },
+      { key: 'params', label: 'params', type: 'text', required: true, placeholder: '命令参数' },
+      { key: 'timeout', label: 'timeout', type: 'number', optional: true, placeholder: '超时(秒)' },
+      { key: 'endXY', label: 'endXY', type: 'coord', optional: true, placeholder: 'X$Y (可选)', help: '执行命令的位置' }
+    ]
+  }
+};
+
+// ============ Flows ============
+function addFlow(types) {
+  if (!types) {
+    showFlowPicker();
+    return;
+  }
+  // Initialize default values from FLOW_META
+  const data = {};
+  types.forEach(t => {
+    const meta = FLOW_META[t];
+    if (meta && meta.fields) {
+      meta.fields.forEach(f => {
+        if (f.value !== undefined) data[f.key] = f.value;
+      });
+    }
+  });
+  flows.push({ id: ++flowIdCounter, types: types, data: data });
+  renderFlows();
+  updatePreview();
+  setTimeout(() => {
+    const el = document.getElementById('flow-' + (flowIdCounter));
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 100);
+}
+
+function addChargeFlow() { addFlow(['charge']); }
+
+// ============ Flow Picker Popup ============
+let flowPickerSelection = [];
+
+function showFlowPicker() {
+  const btn = document.querySelector('#flowsContainer').nextElementSibling?.querySelector('.btn-primary')
+    || document.querySelector('.btn-primary');
+  const rect = btn.getBoundingClientRect();
+
+  const picker = document.getElementById('flowPicker');
+  flowPickerSelection = []; // no default — user must pick
+
+  // Build items
+  const grid = document.getElementById('flowPickerGrid');
+  const types = [
+    { key: 'move', icon: '🔵', label: 'move', desc: '机器人移动' },
+    { key: 'bucket', icon: '🟣', label: 'bucket', desc: '搬运货架' },
+    { key: 'rotate', icon: '🟡', label: 'rotate', desc: '旋转货架' },
+    { key: 'charge', icon: '🟢', label: 'charge', desc: '充电' },
+    { key: 'transfer', icon: '🔴', label: 'transfer', desc: '辊筒传输' },
+    { key: 'fork', icon: '💗', label: 'fork', desc: '叉取货架' },
+    { key: 'cmd', icon: '🟣', label: 'cmd', desc: '扩展命令' },
+  ];
+  grid.innerHTML = types.map(t => `
+    <div class="flow-picker-item${flowPickerSelection.includes(t.key) ? ' selected' : ''}"
+         data-key="${t.key}" onclick="toggleFlowPickerItem('${t.key}', this)">
+      <span>${t.icon}</span>
+      <div><b>${t.label}</b><div class="desc">${t.desc}</div></div>
+    </div>
+  `).join('');
+
+  updateFlowPickerHint();
+
+  // Position near the button
+  picker.style.display = 'block';
+  const pickerW = 340;
+  let left = rect.left;
+  let top = rect.bottom + 6;
+  if (left + pickerW > window.innerWidth - 10) left = window.innerWidth - pickerW - 10;
+  if (top + 320 > window.innerHeight - 10) top = rect.top - 320 - 6;
+  picker.style.left = Math.max(6, left) + 'px';
+  picker.style.top = Math.max(6, top) + 'px';
+
+  // Click outside to close
+  setTimeout(() => {
+    document.addEventListener('click', closeFlowPickerOnOutside);
+  }, 50);
+}
+
+function toggleFlowPickerItem(key, el) {
+  const idx = flowPickerSelection.indexOf(key);
+  if (idx >= 0) {
+    flowPickerSelection.splice(idx, 1);
+    el.classList.remove('selected');
+    // Deselecting bucket also removes auto-added move
+    if (key === 'bucket') {
+      const midx = flowPickerSelection.indexOf('move');
+      if (midx >= 0) {
+        flowPickerSelection.splice(midx, 1);
+        const moveEl = document.querySelector('#flowPickerGrid .flow-picker-item[data-key=\"move\"]');
+        if (moveEl) moveEl.classList.remove('selected');
+      }
+    }
+  } else {
+    flowPickerSelection.push(key);
+    el.classList.add('selected');
+    // Selecting bucket auto-adds move
+    if (key === 'bucket' && !flowPickerSelection.includes('move')) {
+      flowPickerSelection.push('move');
+      const moveEl = document.querySelector('#flowPickerGrid .flow-picker-item[data-key=\"move\"]');
+      if (moveEl) moveEl.classList.add('selected');
+    }
+  }
+  // Don't allow empty selection
+  if (flowPickerSelection.length === 0) {
+    flowPickerSelection = ['move'];
+    const moveEl = document.querySelector('#flowPickerGrid .flow-picker-item[data-key=\"move\"]');
+    if (moveEl) moveEl.classList.add('selected');
+  }
+  // Keep canonical type order (e.g. move before bucket) regardless of click order
+  flowPickerSelection.sort((a, b) => FLOW_TYPES.indexOf(a) - FLOW_TYPES.indexOf(b));
+  updateFlowPickerHint();
+}
+
+function updateFlowPickerHint() {
+  document.getElementById('flowPickerHint').innerHTML =
+    flowPickerSelection.length > 0
+      ? '已选类型将组合为: <b>' + flowPickerSelection.join(' + ') + '</b>'
+      : '<b>请选择动作类型</b>';
+}
+
+function confirmFlowPicker() {
+  if (flowPickerSelection.length === 0) {
+    showToast('请至少选择一个动作类型', 'error');
+    return;
+  }
+  document.removeEventListener('click', closeFlowPickerOnOutside);
+  document.getElementById('flowPicker').style.display = 'none';
+  addFlow([...flowPickerSelection]);
+}
+
+function closeFlowPickerOnOutside(e) {
+  const picker = document.getElementById('flowPicker');
+  if (!picker.contains(e.target)) {
+    document.removeEventListener('click', closeFlowPickerOnOutside);
+    picker.style.display = 'none';
+  }
+}
+
+function duplicateLastFlow() {
+  if (flows.length === 0) { showToast('没有可复制的动作', 'error'); return; }
+  const last = flows[flows.length - 1];
+  flows.push({ id: ++flowIdCounter, types: [...last.types], data: JSON.parse(JSON.stringify(last.data)) });
+  renderFlows();
+  updatePreview();
+}
+
+function removeFlow(id) { flows = flows.filter(f => f.id !== id); renderFlows(); updatePreview(); }
+
+function moveFlowUp(id) {
+  const idx = flows.findIndex(f => f.id === id);
+  if (idx > 0) { [flows[idx - 1], flows[idx]] = [flows[idx], flows[idx - 1]]; renderFlows(); updatePreview(); }
+}
+
+function moveFlowDown(id) {
+  const idx = flows.findIndex(f => f.id === id);
+  if (idx < flows.length - 1) { [flows[idx], flows[idx + 1]] = [flows[idx + 1], flows[idx]]; renderFlows(); updatePreview(); }
+}
+
+function duplicateFlow(id) {
+  const idx = flows.findIndex(f => f.id === id);
+  if (idx < 0) return;
+  const src = flows[idx];
+  flows.splice(idx + 1, 0, { id: ++flowIdCounter, types: [...src.types], data: JSON.parse(JSON.stringify(src.data)) });
+  renderFlows();
+  updatePreview();
+}
+
+function onFlowTypeToggle(flowId, type) {
+  const flow = flows.find(f => f.id === flowId);
+  if (!flow) return;
+  const idx = flow.types.indexOf(type);
+  if (idx >= 0) {
+    if (flow.types.length <= 1) { showToast('至少保留一个类型', 'error'); return; }
+    flow.types.splice(idx, 1);
+    const prefix = type + '_';
+    for (const k of Object.keys(flow.data)) { if (k.startsWith(prefix)) delete flow.data[k]; }
+  } else {
+    flow.types.push(type);
+  }
+  renderFlows();
+  updatePreview();
+}
+
+function onFlowFieldChange(flowId, key, value) {
+  const flow = flows.find(f => f.id === flowId);
+  if (!flow) return;
+  if (value === '' || value === undefined) { delete flow.data[key]; }
+  else { flow.data[key] = value; }
+  updatePreview();
+}
+
+function renderFlows() {
+  const container = document.getElementById('flowsContainer');
+  document.getElementById('flowCount').textContent = flows.length + ' 个动作';
+
+  if (flows.length === 0) {
+    container.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>暂无动作流，点击下方按钮添加</p></div>';
+    return;
+  }
+
+  container.innerHTML = flows.map((flow, idx) => {
+    const primaryType = flow.types[0];
+    const typeClass = 'type-' + primaryType;
+    const typesDisplay = flow.types.join(' + ');
+
+    const typeTabs = FLOW_TYPES.map(t => {
+      const active = flow.types.includes(t);
+      return `<span class="flow-type-tab${active ? ' active' : ''}" onclick="onFlowTypeToggle(${flow.id}, '${t}')" title="${FLOW_META[t].title}">${FLOW_META[t].label}</span>`;
+    }).join('');
+
+    let fieldsHtml = '';
+
+    if (flow.types.length > 1) {
+      // Multiple types combined (e.g. move + bucket): merge all required fields in one view
+      const seenKeys = new Set();
+      const allRequired = [];
+      flow.types.forEach(t => {
+        const meta = FLOW_META[t];
+        (meta.fields || []).forEach(f => {
+          if (f.showIf) {
+            const [condKey, condVal] = Object.entries(f.showIf)[0];
+            if (String(flow.data[condKey] || '') !== condVal) return;
+          }
+          if (f.required && !seenKeys.has(f.key)) {
+            seenKeys.add(f.key);
+            allRequired.push(f);
+          }
+        });
+      });
+
+      if (allRequired.length > 0) {
+        fieldsHtml += '<div class="form-grid">';
+        allRequired.forEach(f => { fieldsHtml += renderFieldHtml(f, flow); });
+        fieldsHtml += '</div>';
+      }
+
+      // Per-type optional fields, collapsed
+      flow.types.forEach(t => {
+        const meta = FLOW_META[t];
+        const optFields = (meta.fields || []).filter(f => {
+          if (f.showIf) {
+            const [condKey, condVal] = Object.entries(f.showIf)[0];
+            if (String(flow.data[condKey] || '') !== condVal) return false;
+          }
+          return !f.required;
+        });
+        if (optFields.length > 0) {
+          const optId = `opt_${flow.id}_${t}`;
+          const hasValue = optFields.some(f => flow.data[f.key]);
+          fieldsHtml += `<div style="margin-top:4px;">`;
+          fieldsHtml += `<span class="flow-optional-toggle" onclick="document.getElementById('${optId}').classList.toggle('active');this.textContent=document.getElementById('${optId}').classList.contains('active')?'▾ ${meta.label} 可选':'▸ ${meta.label} 可选${hasValue ? ' (已填)' : ''}'">▸ ${meta.label} 可选${hasValue ? ' (已填)' : ''}</span>`;
+          fieldsHtml += `<div id="${optId}" class="flow-fields" style="margin-top:4px;">`;
+          fieldsHtml += '<div class="form-grid">';
+          optFields.forEach(f => { fieldsHtml += renderFieldHtml(f, flow); });
+          fieldsHtml += '</div></div></div>';
+        }
+      });
+    } else {
+      // Single type: show required + optional as before
+      flow.types.forEach(t => {
+        const meta = FLOW_META[t];
+        const fields = meta.fields.filter(f => {
+          if (f.showIf) {
+            const [condKey, condVal] = Object.entries(f.showIf)[0];
+            return String(flow.data[condKey] || '') === condVal;
+          }
+          return true;
+        });
+        const requiredFields = fields.filter(f => f.required);
+        const optionalFields = fields.filter(f => !f.required);
+        const hasOptional = optionalFields.length > 0;
+
+        fieldsHtml += `<div class="flow-fields active" data-flow-type="${t}">`;
+
+        // Required fields always visible
+        if (requiredFields.length > 0) {
+          fieldsHtml += '<div class="form-grid">';
+          requiredFields.forEach(f => { fieldsHtml += renderFieldHtml(f, flow); });
+          fieldsHtml += '</div>';
+        }
+
+        // Optional fields collapsed by default
+        if (hasOptional) {
+          const optId = `opt_${flow.id}_${t}`;
+          const hasValue = optionalFields.some(f => flow.data[f.key]);
+          fieldsHtml += `<div style="margin-top:4px;">`;
+          fieldsHtml += `<span class="flow-optional-toggle" onclick="document.getElementById('${optId}').classList.toggle('active');this.textContent=document.getElementById('${optId}').classList.contains('active')?'▾ 可选参数':'▸ 可选参数${hasValue ? ' (已填)' : ''}'">▸ 可选参数${hasValue ? ' (已填)' : ''}</span>`;
+          fieldsHtml += `<div id="${optId}" class="flow-fields" style="margin-top:4px;">`;
+          fieldsHtml += '<div class="form-grid">';
+          optionalFields.forEach(f => { fieldsHtml += renderFieldHtml(f, flow); });
+          fieldsHtml += '</div></div></div>';
+        }
+
+        fieldsHtml += '</div>';
+      });
+    }
+
+    return `
+      <div class="flow-item ${typeClass}" id="flow-${flow.id}">
+        <div class="flow-header">
+          <span class="flow-index">#${idx + 1}</span>
+          <span style="font-weight:600;font-size:0.82rem;">${typesDisplay}</span>
+          <div class="btn-group">
+            <button class="btn btn-outline btn-sm" onclick="moveFlowUp(${flow.id})" ${idx === 0 ? 'disabled' : ''}>↑</button>
+            <button class="btn btn-outline btn-sm" onclick="moveFlowDown(${flow.id})" ${idx === flows.length - 1 ? 'disabled' : ''}>↓</button>
+            <button class="btn btn-outline btn-sm" onclick="duplicateFlow(${flow.id})">📋</button>
+            <button class="btn btn-danger btn-sm" onclick="removeFlow(${flow.id})">🗑</button>
+          </div>
+        </div>
+        <div class="flow-type-tabs">${typeTabs}</div>
+        ${fieldsHtml}
+      </div>`;
+  }).join('');
+}
+
+// ============ Field Rendering Helper ============
+function renderFieldHtml(f, flow) {
+  if (f.showIf) {
+    const [condKey, condVal] = Object.entries(f.showIf)[0];
+    if (String(flow.data[condKey] || '') !== condVal) {
+      return `<input type="hidden" id="f_${flow.id}_${f.key}" value="${escapeHtml(flow.data[f.key] || '')}" onchange="onFlowFieldChange(${flow.id}, '${f.key}', this.value)">`;
+    }
+  }
+  let h = `<div class="form-group">`;
+  h += `<label>${f.label}${f.required ? ' <span class="req">*</span>' : ''}</label>`;
+  if (f.type === 'coord') {
+    const fieldId = `f_${flow.id}_${f.key}`;
+    h += `<div class="coord-input">`;
+    h += `<input type="text" id="${fieldId}" value="${escapeHtml(flow.data[f.key] || '')}" placeholder="${f.placeholder || ''}" onchange="onFlowFieldChange(${flow.id}, '${f.key}', this.value)">`;
+    h += `<button class="btn-pick" data-target="${fieldId}" title="从地图选点" onclick="toggleMapPick('${fieldId}', this)">📍</button>`;
+    h += `</div>`;
+  } else if (f.type === 'select') {
+    h += `<select id="f_${flow.id}_${f.key}" onchange="onFlowFieldChange(${flow.id}, '${f.key}', this.value)">`;
+    f.options.forEach(o => {
+      h += `<option value="${o}"${(flow.data[f.key] || '') === o ? ' selected' : ''}>${o || '-- 默认 --'}</option>`;
+    });
+    h += `</select>`;
+  } else {
+    const inputType = f.type === 'number' ? 'number' : 'text';
+    const step = f.key === 'movePr' ? ' step="0.01"' : '';
+    h += `<input type="${inputType}"${step} id="f_${flow.id}_${f.key}" value="${escapeHtml(flow.data[f.key] || '')}" placeholder="${f.placeholder || ''}" onchange="onFlowFieldChange(${flow.id}, '${f.key}', this.value)">`;
+  }
+  if (f.help) h += `<span class="help-text">${f.help}</span>`;
+  h += `</div>`;
+  return h;
+}
+
+// ============ YAML Generation ============
+function buildYaml() {
+  const lines = [];
+  const goplanID = document.getElementById('goplanID').value;
+  const mapid = document.getElementById('mapid').value;
+  const priority = document.getElementById('priority').value;
+  const loopTime = document.getElementById('loopTime').value;
+  const loopWait = document.getElementById('loopWait').value;
+  const robotXYs = document.getElementById('robotXYs').value;
+  const trigger = buildTriggerString();
+
+  if (goplanID) lines.push(`goplanID: ${goplanID}`);
+  if (mapid) lines.push(`mapid: ${mapid}`);
+  if (priority) lines.push(`priority: ${priority}`);
+  lines.push(`trigger: ${trigger}`);
+  if (loopTime) lines.push(`loopTime: ${loopTime}`);
+  if (loopWait !== undefined && loopWait !== '') lines.push(`loopWait: ${loopWait}`);
+  if (robotXYs) lines.push(`robotXYs: ${robotXYs}`);
+  if (robotLimits.length > 0) lines.push(`robotLimit: ${robotLimits.join(',')}`);
+
+  lines.push('flows:');
+  if (flows.length === 0) {
+    lines.push('  []  # 暂无动作');
+  } else {
+    flows.forEach(flow => {
+      lines.push(`- type: ${flow.types.join(' + ')}`);
+      const written = new Set();
+      flow.types.forEach(t => {
+        FLOW_META[t].fields.forEach(f => {
+          if (written.has(f.key)) return;
+          const val = flow.data[f.key];
+          if (val !== undefined && val !== '') {
+            if (f.key === 'transferTypeStr') {
+              lines.push(`  transferType: ${val}`);
+            } else {
+              const needsQuote = f.type === 'text' && isNaN(Number(val)) && val !== 'true' && val !== 'false';
+              lines.push(needsQuote ? `  ${f.key}: "${val}"` : `  ${f.key}: ${val}`);
+            }
+            written.add(f.key);
+          }
+        });
+      });
+    });
+  }
+  return lines.join('\n');
+}
+
+function updatePreview() {
+  const yaml = buildYaml();
+  const highlighted = yaml.split('\n').map(line => {
+    if (line.match(/^#/)) return `<span class="comment">${escapeHtml(line)}</span>`;
+    const m = line.match(/^(\s*)([\w-]+)(:.*)/);
+    if (m) return `${m[1]}<span class="key">${m[2]}</span>:<span class="val">${escapeHtml(m[3])}</span>`;
+    return escapeHtml(line);
+  }).join('\n');
+  document.getElementById('yamlPreview').innerHTML = highlighted;
+  const mapid = document.getElementById('mapid').value || 'xxx';
+  document.getElementById('fileName').textContent = `rules_nd_${mapid}.yaml`;
+}
+
+function escapeHtml(s) { if (!s) return ''; return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function copyYaml() {
+  navigator.clipboard.writeText(buildYaml()).then(
+    () => showToast('✅ YAML 已复制到剪贴板', 'success'),
+    () => showToast('复制失败，请手动选择文本', 'error')
+  );
+}
+
+function downloadYaml() {
+  const yaml = buildYaml();
+  const mapid = document.getElementById('mapid').value || 'xxx';
+  const filename = `rules_nd_${mapid}.yaml`;
+  const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast(`💾 已下载 ${filename}`, 'success');
+}
+
+function validateForm() {
+  const errors = [];
+  const warns = [];
+
+  // Process-level required fields
+  if (!document.getElementById('goplanID').value) errors.push('goplanID 不能为空');
+  if (!document.getElementById('mapid').value) errors.push('mapid 不能为空');
+  if (!document.getElementById('priority').value) errors.push('priority 不能为空');
+  if (!document.getElementById('loopTime').value) errors.push('loopTime 不能为空');
+  if (!document.getElementById('robotXYs').value) errors.push('robotXYs 不能为空');
+
+  // Validate robotXYs format
+  const robotXYs = document.getElementById('robotXYs').value;
+  if (robotXYs && robotXYs !== 'anyPos') {
+    const coords = robotXYs.split(',');
+    coords.forEach(c => {
+      const trimmed = c.trim();
+      if (trimmed && trimmed !== 'anyPos' && !trimmed.match(/^-?\d+\$-?\d+$/)) {
+        warns.push(`robotXYs 坐标格式可能不正确: "${trimmed}"，期望格式 X$Y`);
+      }
+    });
+  }
+
+  // Validate trigger
+  const triggerType = document.getElementById('triggerType').value;
+  if (triggerType !== 'nil') {
+    const triggerStr = buildTriggerString();
+    if (triggerStr === 'nil') {
+      errors.push('trigger 已选择类型但参数未填写完整');
+    }
+  }
+
+  // Check flows
+  if (flows.length === 0) {
+    warns.push('未添加任何动作流 (flows)');
+  }
+
+  flows.forEach((flow, i) => {
+    flow.types.forEach(t => {
+      FLOW_META[t].fields.forEach(f => {
+        if (f.showIf) {
+          const [condKey, condVal] = Object.entries(f.showIf)[0];
+          if (String(flow.data[condKey] || '') !== condVal) return;
+        }
+
+        const val = flow.data[f.key];
+        if (f.required && !val) {
+          errors.push(`动作 #${i + 1} (${t}): ${f.label} 不能为空`);
+        }
+
+        // Validate coord format
+        if (val && (f.type === 'coord' || f.key.endsWith('XY'))) {
+          if (val !== 'taskPos' && !val.startsWith('randPos') && !val.startsWith('shareQPos')) {
+            if (!val.match(/^-?\d+\$-?\d+$/)) {
+              warns.push(`动作 #${i + 1} (${t}): ${f.label}="${val}" 格式可能不正确，期望 X$Y`);
+            }
+          }
+        }
+
+        // Validate number fields
+        if (val && f.type === 'number') {
+          if (isNaN(Number(val))) {
+            errors.push(`动作 #${i + 1} (${t}): ${f.label} 必须是数字，当前值 "${val}"`);
+          }
+        }
+
+        // Validate charge power/lower range
+        if (t === 'charge' && val) {
+          if (f.key === 'power') {
+            const n = Number(val);
+            if (n < 1 || n > 100) warns.push(`动作 #${i + 1} (charge): power=${n} 超出范围，建议 1-100`);
+          }
+          if (f.key === 'lower') {
+            const n = Number(val);
+            if (n < 0 || n > 100) warns.push(`动作 #${i + 1} (charge): lower=${n} 超出范围，建议 0-100`);
+          }
+        }
+      });
+    });
+  });
+
+  // Report
+  const all = [...errors, ...warns];
+  if (all.length === 0) {
+    showToast('✅ 验证通过！所有必填字段已填写', 'success');
+  } else {
+    let msg = '';
+    if (errors.length > 0) {
+      msg += '❌ 错误:\n' + errors.slice(0, 5).join('\n');
+      if (errors.length > 5) msg += `\n... 还有 ${errors.length - 5} 个错误`;
+    }
+    if (warns.length > 0) {
+      if (msg) msg += '\n\n';
+      msg += '⚠️ 警告:\n' + warns.slice(0, 5).join('\n');
+      if (warns.length > 5) msg += `\n... 还有 ${warns.length - 5} 个警告`;
+    }
+    showToast(msg, 'error');
+    console.error('验证详情:', { errors, warns });
+  }
+  return errors.length === 0;
+}
+
+function resetAll() {
+  if (flows.length > 0 && !confirm('确定要重置所有内容吗？此操作不可撤销。')) return;
+  flows = []; flowIdCounter = 0; robotLimits = [];
+  document.getElementById('goplanID').value = '2';
+  document.getElementById('mapid').value = '';
+  document.getElementById('priority').value = '2';
+  document.getElementById('loopTime').value = '-1';
+  document.getElementById('loopWait').value = '0';
+  document.getElementById('robotXYs').value = '';
+  document.getElementById('triggerType').value = 'nil';
+  document.getElementById('robotLimitSelect').value = '';
+  document.getElementById('triggerBuilder').classList.remove('active');
+  document.getElementById('triggerBuilder').innerHTML = '';
+  renderRobotLimits(); renderFlows(); updatePreview();
+  showToast('🔄 已重置', 'success');
+}
+
+function loadExample() {
+  if (flows.length > 0 && !confirm('加载示例将覆盖当前内容，确定继续？')) return;
+  resetAll();
+  document.getElementById('mapid').value = '14';
+  document.getElementById('robotXYs').value = '11580$3680';
+
+  [
+    { types: ['move', 'bucket'], data: { frame: '1402', releaseFrame: 'false', endXY: '15840$5520' } },
+    { types: ['move', 'bucket'], data: { frame: '1402', releaseFrame: 'false', endXY: '11580$5520' } },
+    { types: ['move', 'bucket'], data: { frame: '1402', releaseFrame: 'false', endXY: '15840$5520' } },
+    { types: ['charge'], data: { power: '90', lower: '30' } },
+    { types: ['move', 'bucket'], data: { frame: '1402', releaseFrame: 'false', endXY: '11580$3680' } },
+  ].forEach(ef => {
+    flows.push({ id: ++flowIdCounter, types: ef.types, data: { ...ef.data } });
+  });
+
+  renderFlows(); updatePreview();
+  showToast('📋 已加载示例 (rules_nd_1800C4.yaml)', 'success');
+}
+
+// ============================================================
+// ============ MAP VIEWER ====================================
+// ============================================================
+
+function openMap() {
+  document.getElementById('mapOverlay').classList.add('active');
+  // Reset view state to force recalculation on each open
+  mapView.scale = 1;
+  mapView.offsetX = 0;
+  mapView.offsetY = 0;
+  selectedMapNode = null;
+  hoveredNode = null;
+
+  // Default to pick mode on
+  if (!pickMode) {
+    pickMode = true;
+    document.getElementById('btnPickMode').classList.add('active-btn');
+    document.getElementById('btnTogglePick').textContent = '🎯 退出选点';
+    getCanvas().classList.add('crosshair');
+  }
+  updatePickStatus();
+
+  if (mapData) {
+    // Wait for modal layout to settle, then fit view
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        resizeCanvas();
+        fitView();
+        drawMap();
+        updateNodeList();
+      });
+    });
+  } else {
+    requestAnimationFrame(() => {
+      resizeCanvas();
+      drawMap();
+    });
+  }
+}
+
+function closeMap() {
+  document.getElementById('mapOverlay').classList.remove('active');
+  if (pickMode) togglePickMode();
+  activePickTarget = null;
+  document.querySelectorAll('.btn-pick.active-pick').forEach(b => b.classList.remove('active-pick'));
+}
+
+// Load map from uploaded file
+function loadMapFromFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Auto-open map panel
+  openMap();
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      const result = parseMapData(data, file.name);
+      if (result) {
+        // Ensure modal layout is fully settled before drawing
+        // Use both rAF chain + small delay for reliability
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            resizeCanvas();
+            fitView();
+            drawMap();
+            updateNodeList();
+            // Extra redraw after a short delay to catch any late layout
+            setTimeout(() => { resizeCanvas(); drawMap(); }, 200);
+          });
+        });
+      }
+    } catch (err) {
+      showToast('❌ JSON 解析失败: ' + err.message, 'error');
+    }
+  };
+  reader.onerror = function() {
+    showToast('❌ 文件读取失败', 'error');
+  };
+  reader.readAsText(file);
+  // Reset file input so same file can be re-loaded
+  event.target.value = '';
+}
+
+// Load map from pasted JSON
+function loadMapFromJson() {
+  const jsonStr = prompt('请粘贴 RMS 地图 JSON 数据:\n\n支持格式:\n1. {"mapinfo":{"nodes":[...],"edges":[...]}}  (BQ MapDetail)\n2. {"warehouseID":"...","mapInfo":[{"mapID":14,"nodes":[...]}]}  (RMS完整)\n3. {"mapID":14,"nodes":[...],"edges":[...]}  (单子图)');
+  if (!jsonStr) return;
+
+  try {
+    const data = JSON.parse(jsonStr);
+    const result = parseMapData(data, 'pasted');
+    if (result) {
+      fitView();
+      drawMap();
+      updateNodeList();
+    }
+  } catch (e) {
+    showToast('❌ JSON 解析失败: ' + e.message, 'error');
+  }
+}
+
+// Parse map data in multiple formats
+function parseMapData(data, sourceName) {
+  let nodes = [];
+  let edges = [];
+  let stations = [];
+  let areas = [];
+  let bgpInfo = null;
+  let mapID = 0;
+  let mapName = sourceName;
+
+  // Format 1: BQ MapDetail - {"mapinfo":{"nodes":[...],"edges":[...],...}}
+  if (data.mapinfo && typeof data.mapinfo === 'object' && !Array.isArray(data.mapinfo)) {
+    const mi = data.mapinfo;
+    nodes = mi.nodes || [];
+    edges = mi.edges || [];
+    areas = mi.areas || [];
+    bgpInfo = mi.bgpInfo || null;
+    mapName = mi.mapEditVer ? 'v' + mi.mapEditVer : sourceName;
+    // BQ format edges use 'head'/'tail' - normalize to 'h'/'t'
+    edges = edges.map(e => ({
+      ...e,
+      h: e.h || e.head,
+      t: e.t || e.tail
+    }));
+    // mapID must be entered manually (BQ format doesn't contain it)
+    mapID = mi.mapID || mi.mapid || 0;
+    if (!mapID) {
+      const userMapID = prompt(`请输入子图 mapid:`, '');
+      if (userMapID === null) return false;
+      mapID = parseInt(userMapID) || 0;
+    }
+  }
+  // Format 2: RMS RobotMap - {"warehouseID":"...","mapInfo":[{...}]}
+  else if (data.mapInfo && Array.isArray(data.mapInfo)) {
+    const mi = data.mapInfo[0];
+    nodes = mi.nodes || [];
+    edges = (mi.edges || []).map(e => ({ ...e, h: e.h || e.head, t: e.t || e.tail }));
+    stations = mi.stations || [];
+    areas = mi.areas || [];
+    bgpInfo = mi.bgpInfo || null;
+    mapID = mi.mapID || 0;
+    mapName = mi.mapName || sourceName;
+  }
+  // Format 3: Single RobotMapInfo - {"mapID":...,"nodes":[...],"edges":[...]}
+  else if (data.nodes && Array.isArray(data.nodes)) {
+    nodes = data.nodes || [];
+    edges = (data.edges || []).map(e => ({ ...e, h: e.h || e.head, t: e.t || e.tail }));
+    stations = data.stations || [];
+    areas = data.areas || [];
+    bgpInfo = data.bgpInfo || null;
+    mapID = data.mapID || 0;
+  }
+  // Format 4: Just a nodes array
+  else if (Array.isArray(data) && data.length > 0 && data[0].x !== undefined) {
+    nodes = data;
+  }
+  else {
+    showToast('❌ 无法识别的地图格式。需要包含 nodes 和 edges 数组', 'error');
+    return false;
+  }
+
+  if (nodes.length === 0) {
+    showToast('❌ 地图中没有节点数据', 'error');
+    return false;
+  }
+
+  // Build the normalized map data structure
+  mapData = {
+    warehouseID: data.warehouseID || '',
+    mapVer: data.mapVer || '',
+    mapInfo: [{
+      mapID: mapID,
+      mapName: mapName,
+      mapType: 0,
+      mapVer: data.mapVer || '',
+      mapFile: sourceName,
+      nodes: nodes,
+      edges: edges,
+      stations: stations,
+      areas: areas,
+      bgpInfo: bgpInfo
+    }]
+  };
+
+  // Sync mapid to form
+  if (mapID) {
+    document.getElementById('mapid').value = mapID;
+    updatePreview();
+  }
+
+  const chargeNodes = nodes.filter(n => n.tag === 'charge').length;
+  const frameNodes = nodes.filter(n => n.tag === 'frame' || n.tag === 'mat_table').length;
+  let info = `✅ 地图加载成功！节点: ${nodes.length} 边: ${edges.length}`;
+  if (chargeNodes > 0) info += ` 充电站: ${chargeNodes}`;
+  if (frameNodes > 0) info += ` 货架点: ${frameNodes}`;
+  showToast(info, 'success');
+  return true;
+}
+
+// Canvas setup
+function getCanvas() { return document.getElementById('mapCanvas'); }
+function getCtx() { return getCanvas().getContext('2d'); }
+
+function resizeCanvas() {
+  const main = document.getElementById('mapMain');
+  const canvas = getCanvas();
+  const w = main.clientWidth;
+  const h = main.clientHeight;
+  if (w > 0 && h > 0) {
+    canvas.width = w;
+    canvas.height = h;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+  } else {
+    // Fallback: use viewport size
+    canvas.width = window.innerWidth * 0.7;
+    canvas.height = window.innerHeight * 0.7;
+  }
+}
+
+// Coordinate transforms
+function worldToScreen(wx, wy) {
+  const canvas = getCanvas();
+  return {
+    x: (wx + mapView.offsetX) * mapView.scale + canvas.width / 2,
+    y: -(wy + mapView.offsetY) * mapView.scale + canvas.height / 2
+  };
+}
+
+function screenToWorld(sx, sy) {
+  const canvas = getCanvas();
+  return {
+    x: (sx - canvas.width / 2) / mapView.scale - mapView.offsetX,
+    y: -(sy - canvas.height / 2) / mapView.scale - mapView.offsetY
+  };
+}
+
+function getAllNodes() {
+  if (!mapData || !mapData.mapInfo) return [];
+  const nodes = [];
+  mapData.mapInfo.forEach(mi => {
+    if (mi.nodes) mi.nodes.forEach(n => nodes.push({ ...n, _mapID: mi.mapID }));
+  });
+  return nodes;
+}
+
+function getAllEdges() {
+  if (!mapData || !mapData.mapInfo) return [];
+  const edges = [];
+  mapData.mapInfo.forEach(mi => {
+    if (mi.edges) mi.edges.forEach(e => edges.push({ ...e, _mapID: mi.mapID }));
+  });
+  return edges;
+}
+
+function getNodeById(id, mapID) {
+  if (!mapData) return null;
+  for (const mi of mapData.mapInfo) {
+    if (mapID !== undefined && mi.mapID !== mapID) continue;
+    if (mi.nodes) {
+      for (const n of mi.nodes) { if (n.id === id) return n; }
+    }
+  }
+  return null;
+}
+
+function getNodeTag(n) {
+  if (n.tag && n.tag !== 'node') return n.tag;
+  return 'normal';
+}
+
+function getNodeColor(n) {
+  const tag = getNodeTag(n);
+  switch (tag) {
+    case 'charge': return '#10b981';
+    case 'frame': case 'mat_table': return '#8b5cf6';
+    case 'tray': return '#ec4899';
+    case 'station': return '#f59e0b';
+    default: return '#3b82f6';
+  }
+}
+
+function getNodeRadius(n) {
+  const tag = getNodeTag(n);
+  return (tag === 'charge' || tag === 'frame') ? 7 : 4;
+}
+
+function drawMap() {
+  const canvas = getCanvas();
+  const ctx = getCtx();
+  resizeCanvas();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  if (!mapData || !mapData.mapInfo) {
+    ctx.fillStyle = '#f1f5f9';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#9ca3af';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('未加载地图 — 请点击页头 "📂 打开地图文件" 选择 JSON 文件', canvas.width / 2, canvas.height / 2);
+    ctx.fillText('或点击 "📥 粘贴JSON" 手动粘贴地图数据', canvas.width / 2, canvas.height / 2 + 28);
+    document.getElementById('mapInfo').textContent = '未加载地图 | 画布: ' + canvas.width + 'x' + canvas.height;
+    return;
+  }
+
+  // Draw background
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Build node lookup
+  const nodeLookup = {};
+  const allEdges = getAllEdges();
+  const allNodes = getAllNodes();
+  allNodes.forEach(n => { nodeLookup[n._mapID + ':' + n.id] = n; });
+
+  const nodeSize = Math.max(2, Math.min(8, 5 / Math.sqrt(mapView.scale)));
+
+  // Draw edges
+  const edgeColor = '#cbd5e1';
+  const edgeWidth = Math.max(0.5, 1.5 / Math.sqrt(Math.max(0.2, mapView.scale)));
+  ctx.strokeStyle = edgeColor;
+  ctx.lineWidth = edgeWidth;
+  allEdges.forEach(edge => {
+    // Edges are normalized to have 'h' and 't' by parseMapData
+    const headId = edge.h;
+    const tailId = edge.t;
+    if (!headId || !tailId) return;
+    const h = nodeLookup[edge._mapID + ':' + headId];
+    const t = nodeLookup[edge._mapID + ':' + tailId];
+    if (!h || !t) return;
+    const p1 = worldToScreen(h.x, h.y);
+    const p2 = worldToScreen(t.x, t.y);
+
+    // Viewport culling
+    if ((p1.x < -50 && p2.x < -50) || (p1.x > canvas.width + 50 && p2.x > canvas.width + 50)) return;
+    if ((p1.y < -50 && p2.y < -50) || (p1.y > canvas.height + 50 && p2.y > canvas.height + 50)) return;
+
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p2.x, p2.y);
+    ctx.stroke();
+
+    // Draw direction arrow for one-way edges (dir=1)
+    if (edge.dir === 1) {
+      const mx = (p1.x + p2.x) / 2;
+      const my = (p1.y + p2.y) / 2;
+      const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      ctx.fillStyle = '#94a3b8';
+      ctx.beginPath();
+      ctx.moveTo(mx + Math.cos(angle) * 6, my + Math.sin(angle) * 6);
+      ctx.lineTo(mx - Math.cos(angle - 1) * 4, my - Math.sin(angle - 1) * 4);
+      ctx.lineTo(mx - Math.cos(angle + 1) * 4, my - Math.sin(angle + 1) * 4);
+      ctx.fill();
+    }
+  });
+
+  // Draw nodes
+  allNodes.forEach(n => {
+    if (filteredNodeTag !== 'all') {
+      const tag = getNodeTag(n);
+      if (tag !== filteredNodeTag) return;
+    }
+
+    const p = worldToScreen(n.x, n.y);
+    // Cull offscreen
+    if (p.x < -20 || p.x > canvas.width + 20 || p.y < -20 || p.y > canvas.height + 20) return;
+
+    const r = Math.max(nodeSize, getNodeRadius(n) / Math.sqrt(Math.max(1, mapView.scale)));
+    const color = getNodeColor(n);
+    const isSelected = selectedMapNode && selectedMapNode.id === n.id && selectedMapNode._mapID === n._mapID;
+    const isHovered = hoveredNode && hoveredNode.id === n.id && hoveredNode._mapID === n._mapID;
+
+    // Glow for selected/hovered
+    if (isSelected || isHovered) {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, r + 6, 0, Math.PI * 2);
+      ctx.fillStyle = isSelected ? 'rgba(59,130,246,0.3)' : 'rgba(148,163,184,0.25)';
+      ctx.fill();
+    }
+
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = isSelected ? '#1d4ed8' : color;
+    ctx.fill();
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Draw station icon
+    if (getNodeTag(n) === 'charge') {
+      ctx.fillStyle = '#fff';
+      ctx.font = `${Math.max(8, r * 1.6)}px sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('⚡', p.x, p.y);
+    }
+  });
+
+  // Draw selected node label
+  if (selectedMapNode) {
+    const p = worldToScreen(selectedMapNode.x, selectedMapNode.y);
+    ctx.fillStyle = '#1e293b';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${selectedMapNode.id} (${selectedMapNode.x}$${selectedMapNode.y})`, p.x, p.y - 14);
+  }
+
+  // Update info
+  const visibleNodes = allNodes.filter(n => {
+    if (filteredNodeTag !== 'all' && getNodeTag(n) !== filteredNodeTag) return false;
+    return true;
+  }).length;
+  document.getElementById('mapInfo').textContent =
+    `节点: ${visibleNodes}/${allNodes.length} | 边: ${allEdges.length} | 缩放: ${(mapView.scale * 100).toFixed(1)}%`;
+}
+
+function fitView() {
+  const allNodes = getAllNodes();
+  if (allNodes.length === 0) return;
+
+  const canvas = getCanvas();
+  if (canvas.width < 50 || canvas.height < 50) {
+    // Canvas not ready yet, retry after a short delay
+    resizeCanvas();
+    if (canvas.width < 50) {
+      console.warn('Canvas not ready for fitView, width=', canvas.width);
+      return;
+    }
+  }
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  allNodes.forEach(n => {
+    if (n.x < minX) minX = n.x;
+    if (n.x > maxX) maxX = n.x;
+    if (n.y < minY) minY = n.y;
+    if (n.y > maxY) maxY = n.y;
+  });
+
+  const padding = 80;
+  const mapW = maxX - minX || 1000;
+  const mapH = maxY - minY || 1000;
+  const scaleX = (canvas.width - padding * 2) / mapW;
+  const scaleY = (canvas.height - padding * 2) / mapH;
+  mapView.scale = Math.max(0.01, Math.min(scaleX, scaleY, 5));
+  mapView.offsetX = -(minX + mapW / 2);
+  mapView.offsetY = -(minY + mapH / 2);
+
+  drawMap();
+}
+
+function mapZoomIn() { mapView.scale = Math.min(mapView.maxScale, mapView.scale * 1.3); drawMap(); }
+function mapZoomOut() { mapView.scale = Math.max(mapView.minScale, mapView.scale / 1.3); drawMap(); }
+function mapFitView() { fitView(); }
+
+// Pan & Zoom with mouse
+function initMapInteraction() {
+  const canvas = getCanvas();
+  const main = document.getElementById('mapMain');
+
+  canvas.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const zoom = e.deltaY < 0 ? 1.15 : 1 / 1.15;
+    const newScale = Math.max(mapView.minScale, Math.min(mapView.maxScale, mapView.scale * zoom));
+    // Zoom toward cursor
+    const worldBefore = screenToWorld(e.offsetX, e.offsetY);
+    mapView.scale = newScale;
+    const worldAfter = screenToWorld(e.offsetX, e.offsetY);
+    mapView.offsetX += worldBefore.x - worldAfter.x;
+    mapView.offsetY += worldBefore.y - worldAfter.y;
+    drawMap();
+  });
+
+  let clickTimer = null;
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (e.button === 1 || e.button === 0) { // left or middle
+      if (pickMode && e.button === 0) {
+        // Single click: show node info (handled below)
+        // Double click: pick and close (handled by dblclick event)
+        mapDragging = true;
+        mapDragStart = { x: e.clientX, y: e.clientY };
+        mapDragOffset = { x: mapView.offsetX, y: mapView.offsetY };
+        return;
+      }
+      mapDragging = true;
+      mapDragStart = { x: e.clientX, y: e.clientY };
+      mapDragOffset = { x: mapView.offsetX, y: mapView.offsetY };
+      canvas.style.cursor = 'grabbing';
+    }
+  });
+
+  // Double click to pick in pick mode
+  canvas.addEventListener('dblclick', (e) => {
+    if (pickMode) {
+      mapDragging = false;
+      handleMapPick(e);
+    }
+  });
+
+  // Single click in pick mode: show node info without selecting
+  canvas.addEventListener('click', (e) => {
+    if (!pickMode) return;
+    // Small delay to distinguish from dblclick
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => {
+      const rect = canvas.getBoundingClientRect();
+      const sx = e.clientX - rect.left;
+      const sy = e.clientY - rect.top;
+      const world = screenToWorld(sx, sy);
+      const allNodes = getAllNodes();
+      const threshold = 20 / mapView.scale;
+      let closest = null;
+      let closestDist = threshold;
+      allNodes.forEach(n => {
+        if (filteredNodeTag !== 'all' && getNodeTag(n) !== filteredNodeTag) return;
+        const dx = n.x - world.x;
+        const dy = n.y - world.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < closestDist) { closestDist = dist; closest = n; }
+      });
+      if (closest) {
+        selectedMapNode = closest;
+        const tag = getNodeTag(closest);
+        const fmt = document.getElementById('coordFormat').value;
+        const coordStr = fmt === 'node' ? closest.id : `${closest.x}$${closest.y}`;
+        document.getElementById('selectedCoordInfo').textContent = `🔍 ${closest.id} (${closest.x}$${closest.y}) ${tag !== 'normal' ? '['+tag+']' : ''} — 双击选点`;
+        drawMap();
+        updateNodeList();
+      }
+    }, 250); // wait for possible dblclick
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (mapDragging) {
+      const dx = (e.clientX - mapDragStart.x) / mapView.scale;
+      const dy = (e.clientY - mapDragStart.y) / mapView.scale;
+      mapView.offsetX = mapDragOffset.x + dx;
+      mapView.offsetY = mapDragOffset.y - dy;
+      drawMap();
+      return;
+    }
+
+    // Hover detection (only if map is open)
+    if (!document.getElementById('mapOverlay').classList.contains('active')) return;
+
+    const canvas = getCanvas();
+    const rect = canvas.getBoundingClientRect();
+    const sx = e.clientX - rect.left;
+    const sy = e.clientY - rect.top;
+    const world = screenToWorld(sx, sy);
+
+    const allNodes = getAllNodes();
+    const threshold = 15 / mapView.scale;
+    let closest = null;
+    let closestDist = threshold;
+
+    allNodes.forEach(n => {
+      if (filteredNodeTag !== 'all' && getNodeTag(n) !== filteredNodeTag) return;
+      const dx = n.x - world.x;
+      const dy = n.y - world.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < closestDist) { closestDist = dist; closest = n; }
+    });
+
+    if (closest !== hoveredNode) {
+      hoveredNode = closest;
+      drawMap();
+      const tooltip = document.getElementById('nodeTooltip');
+      if (closest) {
+        const p = worldToScreen(closest.x, closest.y);
+        tooltip.style.display = 'block';
+        tooltip.style.left = (rect.left + p.x + 12) + 'px';
+        tooltip.style.top = (rect.top + p.y - 20) + 'px';
+        const tag = getNodeTag(closest);
+        const staInfo = closest.sta ? ` [站点:${closest.sta}]` : '';
+        tooltip.innerHTML = `<b>${closest.id}</b> (${closest.x}$${closest.y}) ${tag !== 'normal' ? '['+tag+']' : ''}${staInfo}`;
+      } else {
+        tooltip.style.display = 'none';
+      }
+    }
+    if (pickMode) {
+      canvas.style.cursor = 'crosshair';
+    } else if (!mapDragging) {
+      canvas.style.cursor = closest ? 'pointer' : 'grab';
+    }
+  });
+
+  window.addEventListener('mouseup', () => {
+    mapDragging = false;
+    if (!pickMode) getCanvas().style.cursor = 'grab';
+  });
+
+  // Touch support
+  let lastTouchDist = 0;
+  canvas.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      lastTouchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    } else if (e.touches.length === 1) {
+      mapDragging = true;
+      mapDragStart = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+      mapDragOffset = { x: mapView.offsetX, y: mapView.offsetY };
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      if (lastTouchDist > 0) {
+        const zoom = dist / lastTouchDist;
+        mapView.scale = Math.max(mapView.minScale, Math.min(mapView.maxScale, mapView.scale * zoom));
+      }
+      lastTouchDist = dist;
+      drawMap();
+    } else if (e.touches.length === 1 && mapDragging) {
+      const dx = (e.touches[0].clientX - mapDragStart.x) / mapView.scale;
+      const dy = (e.touches[0].clientY - mapDragStart.y) / mapView.scale;
+      mapView.offsetX = mapDragOffset.x + dx;
+      mapView.offsetY = mapDragOffset.y - dy;
+      drawMap();
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', () => { mapDragging = false; lastTouchDist = 0; });
+}
+
+// Pick mode
+function togglePickMode() {
+  pickMode = !pickMode;
+  const btn = document.getElementById('btnPickMode');
+  const btn2 = document.getElementById('btnTogglePick');
+  const canvas = getCanvas();
+
+  if (pickMode) {
+    btn.classList.add('active-btn');
+    btn2.textContent = '🎯 退出选点';
+    canvas.classList.add('crosshair');
+  } else {
+    btn.classList.remove('active-btn');
+    btn2.textContent = '🎯 选点模式';
+    canvas.classList.remove('crosshair');
+    activePickTarget = null;
+    // Remove active-pick from all pick buttons
+    document.querySelectorAll('.btn-pick.active-pick').forEach(b => b.classList.remove('active-pick'));
+  }
+  updatePickStatus();
+}
+
+function toggleMapPick(targetId, btnElement) {
+  if (!pickMode || activePickTarget !== targetId) {
+    // Start pick mode for this target
+    if (!document.getElementById('mapOverlay').classList.contains('active')) {
+      openMap();
+    }
+    if (!pickMode) togglePickMode();
+    activePickTarget = targetId;
+    // Highlight the active button
+    document.querySelectorAll('.btn-pick.active-pick').forEach(b => b.classList.remove('active-pick'));
+    if (btnElement) btnElement.classList.add('active-pick');
+    updatePickStatus();
+    showToast(`🎯 请在地图上点击选择坐标 (目标: ${targetId})`, 'success');
+  } else {
+    // Cancel pick
+    activePickTarget = null;
+    if (btnElement) btnElement.classList.remove('active-pick');
+    updatePickStatus();
+  }
+}
+
+function updatePickStatus() {
+  const status = document.getElementById('mapPickStatus');
+  if (pickMode && activePickTarget) {
+    status.textContent = '| 🎯 单击查看节点 → 双击选点并关闭';
+  } else if (pickMode) {
+    status.textContent = '| 🎯 单击查看节点 → 双击复制坐标';
+  } else {
+    status.textContent = '';
+  }
+}
+
+function handleMapPick(e) {
+  const canvas = getCanvas();
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+  const world = screenToWorld(sx, sy);
+
+  const allNodes = getAllNodes();
+  const threshold = 20 / mapView.scale;
+  let closest = null;
+  let closestDist = threshold;
+
+  allNodes.forEach(n => {
+    if (filteredNodeTag !== 'all' && getNodeTag(n) !== filteredNodeTag) return;
+    const dx = n.x - world.x;
+    const dy = n.y - world.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < closestDist) { closestDist = dist; closest = n; }
+  });
+
+  let coordStr = '';
+  if (closest) {
+    selectedMapNode = closest;
+    const fmt = document.getElementById('coordFormat').value;
+    coordStr = fmt === 'node' ? closest.id : `${closest.x}$${closest.y}`;
+    document.getElementById('selectedCoordInfo').textContent = `✅ 已选: ${closest.id} (${closest.x}$${closest.y})`;
+
+    if (activePickTarget) {
+      // Fill the target field
+      const el = document.getElementById(activePickTarget);
+      if (el) {
+        el.value = coordStr;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      // Also update flow data
+      const match = activePickTarget.match(/^f_(\d+)_(.+)$/);
+      if (match) {
+        const flowId = parseInt(match[1]);
+        const key = match[2];
+        onFlowFieldChange(flowId, key, coordStr);
+      }
+      updatePreview();
+      showToast(`✅ 坐标已填入: ${activePickTarget} = ${coordStr}`, 'success');
+      // Auto-close map and exit pick mode
+      togglePickMode();
+      closeMap();
+    } else {
+      // Copy to clipboard
+      navigator.clipboard.writeText(coordStr).then(
+        () => showToast(`📋 已复制: ${coordStr}`, 'success')
+      );
+    }
+  } else {
+    // Use raw position
+    coordStr = `${Math.round(world.x)}$${Math.round(world.y)}`;
+    if (activePickTarget) {
+      const el = document.getElementById(activePickTarget);
+      if (el) {
+        el.value = coordStr;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      const match = activePickTarget.match(/^f_(\d+)_(.+)$/);
+      if (match) {
+        onFlowFieldChange(parseInt(match[1]), match[2], coordStr);
+      }
+      updatePreview();
+      showToast(`⚠️ 未吸附到节点，使用原始坐标: ${coordStr}`, 'error');
+    }
+  }
+
+  drawMap();
+}
+
+function filterNodes(tag) {
+  filteredNodeTag = tag;
+  drawMap();
+  updateNodeList();
+}
+
+function filterNodeList(query) {
+  nodeListFilter = query.toLowerCase();
+  updateNodeList();
+}
+
+function updateNodeList() {
+  const container = document.getElementById('nodeList');
+  const allNodes = getAllNodes();
+  document.getElementById('mapNodeCount').textContent = `(${allNodes.length}个)`;
+
+  let filtered = allNodes;
+  if (filteredNodeTag !== 'all') {
+    filtered = filtered.filter(n => getNodeTag(n) === filteredNodeTag);
+  }
+  if (nodeListFilter) {
+    filtered = filtered.filter(n => n.id.toLowerCase().includes(nodeListFilter));
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = '<div style="color:#9ca3af;font-size:0.7rem;">无匹配节点</div>';
+    return;
+  }
+
+  container.innerHTML = filtered.slice(0, 200).map(n => {
+    const tag = getNodeTag(n);
+    const selClass = selectedMapNode && selectedMapNode.id === n.id ? ' selected' : '';
+    return `<div class="node-item${selClass}" onclick="selectNodeFromList('${n.id}', ${n._mapID})" title="${n.x}$${n.y} ${tag !== 'normal' ? '['+tag+']' : ''}">
+      <span>${n.id} <span style="color:#9ca3af;font-size:0.65rem;">${n.x}$${n.y}</span></span>
+      ${tag !== 'normal' ? `<span style="color:${getNodeColor(n)};font-size:0.65rem;">${tag}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  if (filtered.length > 200) {
+    container.innerHTML += `<div style="color:#9ca3af;font-size:0.7rem;text-align:center;padding:4px;">... 还有 ${filtered.length - 200} 个节点</div>`;
+  }
+}
+
+function selectNodeFromList(id, mapID) {
+  const n = getNodeById(id, mapID);
+  if (!n) return;
+  selectedMapNode = { ...n, _mapID: mapID };
+  // Center on this node
+  mapView.offsetX = -n.x;
+  mapView.offsetY = -n.y;
+
+  const fmt = document.getElementById('coordFormat').value;
+  const coordStr = fmt === 'node' ? n.id : `${n.x}$${n.y}`;
+  document.getElementById('selectedCoordInfo').textContent = `✅ 已选: ${n.id} (${n.x}$${n.y})`;
+
+  if (activePickTarget) {
+    const el = document.getElementById(activePickTarget);
+    if (el) {
+      el.value = coordStr;
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    const match = activePickTarget.match(/^f_(\d+)_(.+)$/);
+    if (match) {
+      onFlowFieldChange(parseInt(match[1]), match[2], coordStr);
+    }
+    updatePreview();
+    showToast(`✅ 坐标已填入: ${activePickTarget} = ${coordStr}`, 'success');
+    // Auto-close map and exit pick mode
+    togglePickMode();
+    closeMap();
+  }
+
+  drawMap();
+  updateNodeList();
+}
+
+// ============ Keyboard shortcuts ============
+document.addEventListener('keydown', (e) => {
+  if (!document.getElementById('mapOverlay').classList.contains('active')) return;
+  switch (e.key.toLowerCase()) {
+    case 'p': togglePickMode(); break;
+    case 'f': fitView(); break;
+    case '+': case '=': mapZoomIn(); break;
+    case '-': mapZoomOut(); break;
+    case 'escape': if (pickMode) togglePickMode(); else closeMap(); break;
+  }
+});
+
+// ============ Init ============
+document.addEventListener('DOMContentLoaded', () => {
+  initMapInteraction();
+  updatePreview();
+
+  ['goplanID', 'mapid', 'priority', 'loopTime', 'loopWait', 'robotXYs'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.addEventListener('input', updatePreview);
+  });
+  document.getElementById('triggerType').addEventListener('change', () => {
+    onTriggerTypeChange();
+    updatePreview();
+  });
+  document.getElementById('triggerBuilder').addEventListener('input', () => updatePreview());
+
+  // Monitor trigger builder for dynamic fields
+  new MutationObserver(() => updatePreview()).observe(
+    document.getElementById('triggerBuilder'),
+    { childList: true, subtree: true, characterData: true }
+  );
+
+  // Close map on overlay click
+  document.getElementById('mapOverlay').addEventListener('click', (e) => {
+    if (e.target === document.getElementById('mapOverlay')) closeMap();
+  });
+
+  // Handle window resize for canvas
+  window.addEventListener('resize', () => {
+    if (document.getElementById('mapOverlay').classList.contains('active')) {
+      drawMap();
+    }
+  });
+});
+</script>
+</body>
+</html>

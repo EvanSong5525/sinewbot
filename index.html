@@ -27,9 +27,14 @@
   /* 背景光效 */
   .glow {
     position:fixed; border-radius:50%; filter:blur(120px); opacity:.25; pointer-events:none; z-index:0;
+    animation: drift 14s ease-in-out infinite alternate;
   }
   .glow-1 { width:520px; height:520px; background:#2b5cff; top:-160px; left:-120px; }
-  .glow-2 { width:420px; height:420px; background:#12b8a6; bottom:-140px; right:-100px; }
+  .glow-2 { width:420px; height:420px; background:#12b8a6; bottom:-140px; right:-100px; animation-delay:-7s; }
+  @keyframes drift {
+    from { transform:translate(0,0) scale(1); }
+    to   { transform:translate(40px,30px) scale(1.08); }
+  }
 
   /* 网格纹理 */
   .grid-overlay {
@@ -44,6 +49,12 @@
 
   .page { position:relative; z-index:1; max-width:960px; margin:0 auto; padding:0 24px; }
 
+  /* 入场动效 */
+  .fade-up { opacity:0; transform:translateY(18px); animation:fadeUp .7s ease forwards; }
+  .d1 { animation-delay:.05s; } .d2 { animation-delay:.15s; } .d3 { animation-delay:.25s; }
+  .d4 { animation-delay:.35s; } .d5 { animation-delay:.45s; } .d6 { animation-delay:.55s; }
+  @keyframes fadeUp { to { opacity:1; transform:translateY(0); } }
+
   /* 导航 */
   nav {
     display:flex; align-items:center; justify-content:space-between;
@@ -55,20 +66,25 @@
     background:linear-gradient(135deg, var(--accent), var(--accent2));
     display:flex; align-items:center; justify-content:center;
     font-size:.85rem; color:#04101f; font-weight:800;
+    box-shadow:0 2px 12px rgba(79,140,255,.4);
   }
   .nav-links { display:flex; gap:26px; }
   .nav-links a { color:var(--text-dim); text-decoration:none; font-size:.88rem; transition:color .2s; }
   .nav-links a:hover { color:var(--text); }
 
   /* Hero */
-  .hero { padding:96px 0 72px; text-align:center; }
+  .hero { padding:96px 0 64px; text-align:center; }
   .badge {
     display:inline-flex; align-items:center; gap:8px;
     padding:6px 14px; border:1px solid var(--border); border-radius:999px;
     font-size:.78rem; color:var(--text-dim); background:rgba(255,255,255,0.03);
     margin-bottom:28px;
   }
-  .badge .dot { width:7px; height:7px; border-radius:50%; background:var(--accent2); box-shadow:0 0 8px var(--accent2); }
+  .badge .dot {
+    width:7px; height:7px; border-radius:50%; background:var(--accent2);
+    box-shadow:0 0 8px var(--accent2); animation:blink 2.2s ease-in-out infinite;
+  }
+  @keyframes blink { 0%,100% { opacity:1; } 50% { opacity:.35; } }
   h1 {
     font-size: clamp(2.2rem, 6vw, 3.6rem);
     font-weight:800; letter-spacing:-1px; line-height:1.2;
@@ -93,18 +109,46 @@
   }
   .btn-primary:hover { transform:translateY(-2px); box-shadow:0 8px 32px rgba(79,140,255,.45); }
   .btn-ghost { border-color:var(--border); color:var(--text); background:rgba(255,255,255,0.03); }
-  .btn-ghost:hover { background:rgba(255,255,255,0.07); }
+  .btn-ghost:hover { background:rgba(255,255,255,0.07); transform:translateY(-2px); }
+
+  /* 区块标题 */
+  .section-title {
+    font-size:.78rem; letter-spacing:2.5px; text-transform:uppercase;
+    color:var(--text-dim); margin-bottom:18px; display:flex; align-items:center; gap:12px;
+  }
+  .section-title::after { content:""; flex:1; height:1px; background:var(--border); }
 
   /* 卡片区 */
-  .features { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; padding:40px 0 80px; }
+  .features { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; padding-bottom:56px; }
   .card {
     background:var(--bg-soft); border:1px solid var(--border); border-radius:var(--radius);
-    padding:26px 22px; transition:transform .2s, border-color .2s;
+    padding:26px 22px; transition:transform .2s, border-color .2s, box-shadow .2s;
   }
-  .card:hover { transform:translateY(-4px); border-color:rgba(79,140,255,.35); }
+  .card:hover { transform:translateY(-4px); border-color:rgba(79,140,255,.35); box-shadow:0 10px 30px rgba(0,0,0,.3); }
   .card .icon { font-size:1.5rem; margin-bottom:14px; }
   .card h3 { font-size:1.02rem; margin-bottom:8px; }
   .card p { font-size:.86rem; color:var(--text-dim); }
+
+  /* 工具区 */
+  .tools { padding-bottom:80px; }
+  .tool-card {
+    display:flex; align-items:center; justify-content:space-between; gap:18px;
+    background:linear-gradient(135deg, rgba(79,140,255,.08), rgba(56,224,200,.05));
+    border:1px solid rgba(79,140,255,.25); border-radius:var(--radius);
+    padding:24px 26px; text-decoration:none; color:var(--text);
+    transition:transform .2s, border-color .2s, box-shadow .2s;
+  }
+  .tool-card:hover { transform:translateY(-3px); border-color:rgba(79,140,255,.5); box-shadow:0 12px 36px rgba(79,140,255,.15); }
+  .tool-card .tool-info { display:flex; align-items:center; gap:16px; }
+  .tool-card .tool-icon {
+    width:46px; height:46px; border-radius:12px; flex-shrink:0;
+    background:linear-gradient(135deg, var(--accent), var(--accent2));
+    display:flex; align-items:center; justify-content:center; font-size:1.3rem;
+  }
+  .tool-card h3 { font-size:1.02rem; margin-bottom:4px; }
+  .tool-card p { font-size:.84rem; color:var(--text-dim); }
+  .tool-card .arrow { font-size:1.2rem; color:var(--accent2); transition:transform .2s; }
+  .tool-card:hover .arrow { transform:translateX(5px); }
 
   /* 页脚 */
   footer {
@@ -119,6 +163,8 @@
     .features { grid-template-columns:1fr; }
     .nav-links { display:none; }
     .hero { padding:64px 0 48px; }
+    .tool-card { flex-direction:column; align-items:flex-start; }
+    .tool-card .arrow { display:none; }
   }
 </style>
 </head>
@@ -128,25 +174,26 @@
   <div class="grid-overlay"></div>
 
   <div class="page">
-    <nav>
+    <nav class="fade-up d1">
       <div class="logo">
         <div class="logo-mark">S</div>
         SinewBot
       </div>
       <div class="nav-links">
         <a href="#about">关于</a>
+        <a href="#tools">工具</a>
         <a href="#contact">联系</a>
       </div>
     </nav>
 
     <section class="hero" id="about">
-      <div class="badge"><span class="dot"></span> Embodied Intelligence · 具身智能</div>
-      <h1>赋予机器以<br><span class="grad">肌腱与感知</span></h1>
-      <p class="tagline">SinewBot 探索具身智能的边界 —— 让机器不仅会思考，更拥有感知与行动的身体。</p>
-      <p class="hero-en">Sinew · Sense · Act</p>
-      <div class="cta-row">
+      <div class="badge fade-up d2"><span class="dot"></span> Embodied Intelligence · 具身智能</div>
+      <h1 class="fade-up d3">赋予机器以<br><span class="grad">肌腱与感知</span></h1>
+      <p class="tagline fade-up d4">SinewBot 探索具身智能的边界 —— 让机器不仅会思考，更拥有感知与行动的身体。</p>
+      <p class="hero-en fade-up d5">Sinew · Sense · Act</p>
+      <div class="cta-row fade-up d6">
         <a class="btn btn-primary" href="mailto:hi@sinewbot.com">📮 联系我们</a>
-        <a class="btn btn-ghost" href="https://github.com/sinewbot" target="_blank" rel="noopener">GitHub →</a>
+        <a class="btn btn-ghost" href="https://github.com/EvanSong5525" target="_blank" rel="noopener">GitHub →</a>
       </div>
     </section>
 
@@ -166,6 +213,20 @@
         <h3>行动 Act</h3>
         <p>从感知到决策再到控制闭环，让智能在物理世界中完成真实任务。</p>
       </div>
+    </section>
+
+    <section class="tools" id="tools">
+      <div class="section-title">工具 Tools</div>
+      <a class="tool-card" href="/goplan/">
+        <div class="tool-info">
+          <div class="tool-icon">🗺️</div>
+          <div>
+            <h3>GoPlan 脚本生成器</h3>
+            <p>可视化生成巡检/路径规划 YAML 脚本，支持地图点位拾取与参数配置。</p>
+          </div>
+        </div>
+        <span class="arrow">→</span>
+      </a>
     </section>
 
     <footer id="contact">
